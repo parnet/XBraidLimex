@@ -70,15 +70,15 @@ ug_load_script("util/solver_util.lua")
 util = util or {}
 util.limex = util.limex or {}
 
-util.limex.defaultDesc = util.limex.defaultDesc or
-        {
-            nstages = 2,
-            steps = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },
-            nthreads = 1,
-            tol = 0.001,
-
-            makeConsistent = false,
-        }
+util.limex.defaultDesc = util.limex.defaultDesc or 
+{
+    nstages = 2,
+    steps = {1,2,3,4,5,6,7,8,9,10},
+    nthreads = 1,
+    tol = 0.001,
+    
+    makeConsistent = false,
+}
 
 --[[
 function add_h1semi_subspace(container, value, scale)
@@ -109,236 +109,228 @@ function add_h1semi_subspace(container, value, scale)
 end
 --]]
 
-function util.limex.CreateLimexErrorSpace (errorDesc, inst)
+function util.limex.CreateLimexErrorSpace (errorDesc, inst) 
 
-    local space = nil
-    if (type(errorDesc) == "table" and errorDesc.type == "CompositeSpace") then
-        print("--> " .. errorDesc.type)
-        space = CompositeSpace()
+   local space = nil
+   if (type(errorDesc)=="table" and errorDesc.type=="CompositeSpace") then
+      print("--> "..errorDesc.type)
+      space = CompositeSpace()
+   
+      for key, value in ipairs(errorDesc) do
+         local scale = value.scale or 1.0
+         print ("+++ "..value.type..", "..value.weight..", "..value.func..", "..value.order..", scale="..scale)
 
-        for key, value in ipairs(errorDesc) do
-            local scale = value.scale or 1.0
-            print("+++ " .. value.type .. ", " .. value.weight .. ", " .. value.func .. ", " .. value.order .. ", scale=" .. scale)
-
-            if (value.type == "H1ComponentSpace") then
-                --
-            elseif (value.type == "H1SemiComponentSpace") then
-                -- add_h1semi_subspace(space, value, scale)
-            elseif (value.type == "L2ComponentSpace") then
-                -- errorEst:add(L2ComponentSpace(value.func, value.order))
-            end -- if
-        end -- for
-    end -- if
-
-    return space
+	 if (value.type== "H1ComponentSpace") then
+	    -- 
+	 elseif (value.type == "H1SemiComponentSpace") then
+	    -- add_h1semi_subspace(space, value, scale)
+	 elseif (value.type == "L2ComponentSpace") then
+	    -- errorEst:add(L2ComponentSpace(value.func, value.order))
+	 end -- if                                                                                                                                                                     
+      end -- for
+   end -- if
+   
+   return space
 end
 
 
 -- This is a factory for error estimators
-function util.limex.CreateLimexErrorEstimator (errorInfo, inst)
+function util.limex.CreateLimexErrorEstimator (errorInfo, inst) 
+  
+   local errorEst 
+   
+   print("Creating error estimator")
 
-    local errorEst
+  if (type(errorInfo)=="string") then
 
-    print("Creating error estimator")
+  if (errorInfo == "Conc_GridFunction") then
+      -- relative grid function error
+      errorEst = GridFunctionEstimator("c", 4)
+      errorEst:add("c", 2, 1, 1.0)   -- add H1 Semi-norm for c
+  elseif (errorInfo == "Conc_L2_Absolute") then
+      -- absolute algebraic l2 error
+      errorEst = Norm2Estimator()
+      errorEst:set_offset(0)
+      errorEst:set_stride(2)
+  elseif (errorInfo == "Scaled_GridFunction") then
+      errorEst = ScaledGridFunctionEstimator()
+      errorEst:add(H1ErrorEvaluator("c", 4))         -- L2 norm for c
+      errorEst:add(H1SemiErrorEvaluator("p", 2))     -- H1 semi-norm for p
+  end
 
-    if (type(errorInfo) == "string") then
+  elseif (type(errorInfo)=="table" and errorInfo.type=="ScaledGridFunctionEstimator") then
+      print("--> "..errorInfo.type)
+      errorEst = ScaledGridFunctionEstimator()
 
-        if (errorInfo == "Conc_GridFunction") then
-            -- relative grid function error
-            errorEst = GridFunctionEstimator("c", 4)
-            errorEst:add("c", 2, 1, 1.0)   -- add H1 Semi-norm for c
-        elseif (errorInfo == "Conc_L2_Absolute") then
-            -- absolute algebraic l2 error
-            errorEst = Norm2Estimator()
-            errorEst:set_offset(0)
-            errorEst:set_stride(2)
-        elseif (errorInfo == "Scaled_GridFunction") then
-            errorEst = ScaledGridFunctionEstimator()
-            errorEst:add(H1ErrorEvaluator("c", 4))         -- L2 norm for c
-            errorEst:add(H1SemiErrorEvaluator("p", 2))     -- H1 semi-norm for p
-        end
+      -- Fill with pairs table entries.
+      for key, value in ipairs(errorInfo) do
+	       local scale = value.scale or 1.0
+         print ("+++ "..value.type..", "..value.func..", "..value.order..", scale="..scale)
+ 
+        if (value.type== "H1ErrorEvaluator") then
+            errorEst:add(H1ComponentSpace(value.func, value.order)) 
+        elseif (value.type == "H1SemiErrorEvaluator" or value.type == "H1SemiComponentSpace") then
+	    --add_h1semi_subspace(errorEst, value)	   
+	   --[[ 
+	   if (not value.weight) then
+	       errorEst:add(H1SemiComponentSpace(value.func, value.order, scale, ConstUserNumber(1.0))) 
+            elseif (type(value.weight)=="number") then        
+	       errorEst:add(H1SemiComponentSpace(value.func, value.order, scale, ConstUserNumber(value.weight))) 
+	    elseif (value.weight=="k") then        
+	       errorEst:add(H1SemiComponentSpace(value.func, value.order, scale, inst.coef.PrintPermeability)) 
+           end
+	    --]]
+        elseif (value.type == "L2ErrorEvaluator") then 
+            errorEst:add(L2ComponentSpace(value.func, value.order)) 
+        elseif (value.type == "UserDataEvaluator") then 
+            local eval = UserDataEvaluatorNumber(value.func, value.order)
+             --eval:set_user_data(inst.coef.DarcyVelocity)
+             eval:set_user_data(inst.coef.SubsetDensity)
+            errorEst:add(eval) 
+            
+        end -- if   
+      end -- for
+      
+      
+      
+  elseif (type(errorInfo)=="table" and errorInfo.type=="GridFunctionEstimator") then
+     print("--> "..errorInfo.type)
+     errorEst = GridFunctionEstimator()
+     
+     -- Fill with pairs table entries.
+     for key, value in ipairs(errorInfo) do
+         local scale = value.scale or 1
+         print ("+++ "..value.type..", "..value.weight..", "..value.func..", "..value.order..", scale="..scale)
+	 
+	       if (value.type == "H1SemiErrorEvaluator" or value.type == "H1SemiComponentSpace") then
+	        -- add_h1semi_subspace(errorEst, value, scale)	   
+	       end --if
+     end -- for
 
-    elseif (type(errorInfo) == "table" and errorInfo.type == "ScaledGridFunctionEstimator") then
-        print("--> " .. errorInfo.type)
-        errorEst = ScaledGridFunctionEstimator()
-
-        -- Fill with pairs table entries.
-        for key, value in ipairs(errorInfo) do
-            local scale = value.scale or 1.0
-            print("+++ " .. value.type .. ", " .. value.func .. ", " .. value.order .. ", scale=" .. scale)
-
-            if (value.type == "H1ErrorEvaluator") then
-                errorEst:add(H1ComponentSpace(value.func, value.order))
-            elseif (value.type == "H1SemiErrorEvaluator" or value.type == "H1SemiComponentSpace") then
-                --add_h1semi_subspace(errorEst, value)
-                --[[
-                if (not value.weight) then
-                    errorEst:add(H1SemiComponentSpace(value.func, value.order, scale, ConstUserNumber(1.0)))
-                     elseif (type(value.weight)=="number") then
-                    errorEst:add(H1SemiComponentSpace(value.func, value.order, scale, ConstUserNumber(value.weight)))
-                 elseif (value.weight=="k") then
-                    errorEst:add(H1SemiComponentSpace(value.func, value.order, scale, inst.coef.PrintPermeability))
-                    end
-                 --]]
-            elseif (value.type == "L2ErrorEvaluator") then
-                errorEst:add(L2ComponentSpace(value.func, value.order))
-            elseif (value.type == "UserDataEvaluator") then
-                local eval = UserDataEvaluatorNumber(value.func, value.order)
-                --eval:set_user_data(inst.coef.DarcyVelocity)
-                eval:set_user_data(inst.coef.SubsetDensity)
-                errorEst:add(eval)
-
-            end -- if
-        end -- for
-
-
-    elseif (type(errorInfo) == "table" and errorInfo.type == "GridFunctionEstimator") then
-        print("--> " .. errorInfo.type)
-        errorEst = GridFunctionEstimator()
-
-        -- Fill with pairs table entries.
-        for key, value in ipairs(errorInfo) do
-            local scale = value.scale or 1
-            print("+++ " .. value.type .. ", " .. value.weight .. ", " .. value.func .. ", " .. value.order .. ", scale=" .. scale)
-
-            if (value.type == "H1SemiErrorEvaluator" or value.type == "H1SemiComponentSpace") then
-                -- add_h1semi_subspace(errorEst, value, scale)
-            end --if
-        end -- for
-
-    end -- type (errorInfo) ==
-
-    return errorEst
+  end -- type (errorInfo) == 
+  
+  return errorEst
 end
 
 -- aux function creating a solver
 function util.limex.CreateLimexSolver(nlsolverDesc, solverutil)
-    local limexSolverDesc = {
+     local limexSolverDesc = {
         type = "newton",
         lineSearch = "none",
         convCheck = nlsolverDesc.convCheck,
-    }
-
+     }
+     
     return util.solver.CreateSolver(limexSolverDesc, solverutil)
-
+  
 end
 
 -- aux function creating an integrator
 function util.limex.CreateIntegrator(limexDesc)
 
-    -- max number of stages [scalar]
-    local nstages = limexDesc.nstages
-    if ((type(limexDesc.steps) ~= "table")) then
-        print("ERROR: Requires array of steps!")
-        return nil
+-- max number of stages [scalar]
+local nstages = limexDesc.nstages
+if ((type(limexDesc.steps) ~= "table")) then print ("ERROR: Requires array of steps!") return nil
+end
+
+-- distribution of steps [scalar or string???]
+local nsteps = table.getn(limexDesc.steps)
+if ((nsteps < nstages)) then print ("ERROR: Array too short!") return nil 
+end
+
+-- print(limexDesc.nonlinSolver:config_string())
+
+local ndiscs = 0 -- discretization(s) [object or table of objects]
+if (type(limexDesc.domainDisc) == "table") then ndiscs = table.getn(limexDesc.domainDisc) 
+end
+
+
+local ngamma = 0 -- discretization(s) [object or table of objects]
+if (limexDesc.gammaDisc) then
+if (type(limexDesc.gammaDisc) == "table") then ngamma = table.getn(limexDesc.gammaDisc) 
+end
+end
+
+local nsolvers = 0 -- solver(s) [object or table of objects]
+if (type(limexDesc.nonlinSolver) == "table") then nsolvers = table.getn(limexDesc.nonlinSolver)
+end
+
+
+if (ndiscs ~= nsolvers) then 
+  print ("Discs: "..ndiscs..","..nsolvers)
+  print ("ERROR: domainDisc and nonlinSolver must match in type and number of args!") return nil
+end 
+
+
+local nthreads = limexDesc.nthreads or 1;
+
+-- create integrator and initialize stages
+local limex = LimexTimeIntegrator(nstages)
+if ((ndiscs>0 
+    and nsolvers>0) 
+    or nthreads > 1) then 
+
+  -- multiples discs/solvers 
+  if (ndiscs < nstages) then print ("ERROR: Number of discretizations too small:"..ndiscs)  return nil end
+  if (nsolvers < nstages) then print ("ERROR: Number of solvers too small:"..nsolvers)  return nil end
+  
+  
+  
+  for i=1,nstages do 
+    limex:add_stage(limexDesc.steps[i],  limexDesc.nonlinSolver[i], limexDesc.domainDisc[i])
+  end
+else 
+
+  -- single disc/solver (=>serial version) 
+  
+  
+  if (not limexDesc.gammaDiscOPT) then
+    for i=1,nstages do 
+      limex:add_stage(limexDesc.steps[i], limexDesc.nonlinSolver, limexDesc.domainDisc)
     end
-
-    -- distribution of steps [scalar or string???]
-    local nsteps = table.getn(limexDesc.steps)
-    if ((nsteps < nstages)) then
-        print("ERROR: Array too short!")
-        return nil
+  else
+    print("Creating w/Gamma")
+    for i=1,nstages do 
+      limex:add_stage(limexDesc.steps[i], limexDesc.nonlinSolver, limexDesc.domainDisc, limexDesc.gammaDiscOPT)
     end
+  end
+end
 
-    -- print(limexDesc.nonlinSolver:config_string())
+-- set tolerance
+local tol = limexDesc.tol or 1e-2
+limex:set_tolerance(limexDesc.tol)
 
-    local ndiscs = 0 -- discretization(s) [object or table of objects]
-    if (type(limexDesc.domainDisc) == "table") then
-        ndiscs = table.getn(limexDesc.domainDisc)
-    end
-
-    local ngamma = 0 -- discretization(s) [object or table of objects]
-    if (limexDesc.gammaDisc) then
-        if (type(limexDesc.gammaDisc) == "table") then
-            ngamma = table.getn(limexDesc.gammaDisc)
-        end
-    end
-
-    local nsolvers = 0 -- solver(s) [object or table of objects]
-    if (type(limexDesc.nonlinSolver) == "table") then
-        nsolvers = table.getn(limexDesc.nonlinSolver)
-    end
-
-    if (ndiscs ~= nsolvers) then
-        print("Discs: " .. ndiscs .. "," .. nsolvers)
-        print("ERROR: domainDisc and nonlinSolver must match in type and number of args!")
-        return nil
-    end
-
-    local nthreads = limexDesc.nthreads or 1;
-
-    -- create integrator and initialize stages
-    local limex = LimexTimeIntegrator(nstages)
-    if ((ndiscs > 0
-            and nsolvers > 0)
-            or nthreads > 1) then
-
-        -- multiples discs/solvers
-        if (ndiscs < nstages) then
-            print("ERROR: Number of discretizations too small:" .. ndiscs)
-            return nil
-        end
-        if (nsolvers < nstages) then
-            print("ERROR: Number of solvers too small:" .. nsolvers)
-            return nil
-        end
-
-        for i = 1, nstages do
-            limex:add_stage(limexDesc.steps[i], limexDesc.nonlinSolver[i], limexDesc.domainDisc[i])
-        end
-    else
-
-        -- single disc/solver (=>serial version)
+-- set default time step
+limex:set_time_step(limexDesc.dt)    
+local dtmin = 1e-4*limexDesc.dt
 
 
-        if (not limexDesc.gammaDiscOPT) then
-            for i = 1, nstages do
-                limex:add_stage(limexDesc.steps[i], limexDesc.nonlinSolver, limexDesc.domainDisc)
-            end
-        else
-            print("Creating w/Gamma")
-            for i = 1, nstages do
-                limex:add_stage(limexDesc.steps[i], limexDesc.nonlinSolver, limexDesc.domainDisc, limexDesc.gammaDiscOPT)
-            end
-        end
-    end
+-- debug writer (optional)
+if (limexDesc.rhoSafetyOPT) then
+  limex:set_stepsize_safety_factor(limexDesc.rhoSafetyOPT)
+end
 
-    -- set tolerance
-    local tol = limexDesc.tol or 1e-2
-    limex:set_tolerance(limexDesc.tol)
-
-    -- set default time step
-    limex:set_time_step(limexDesc.dt)
-    local dtmin = 1e-4 * limexDesc.dt
+-- debug writer (optional)
+if (limexDesc.debugOPT) then
+ -- limex:set_debug(limexDesc.debugOPT)
+end
 
 
-    -- debug writer (optional)
-    if (limexDesc.rhoSafetyOPT) then
-        limex:set_stepsize_safety_factor(limexDesc.rhoSafetyOPT)
-    end
+-- cache matrices (classic algorithm)
+if (limexDesc.matrixCache) then
+   print ("LIMEX: matrix cache enabled")
+   limex:enable_matrix_cache()
+else
+   print ("LIMEX: matrix cache disabled")
+   limex:disable_matrix_cache()
+end
 
-    -- debug writer (optional)
-    if (limexDesc.debugOPT) then
-        -- limex:set_debug(limexDesc.debugOPT)
-    end
+-- selest cost strategy
+if (limexDesc.costStrategyOPT) then
+   limex:select_cost_strategy(limexDesc.costStrategyOPT)
+end
 
-
-    -- cache matrices (classic algorithm)
-    if (limexDesc.matrixCache) then
-        print("LIMEX: matrix cache enabled")
-        limex:enable_matrix_cache()
-    else
-        print("LIMEX: matrix cache disabled")
-        limex:disable_matrix_cache()
-    end
-
-    -- selest cost strategy
-    if (limexDesc.costStrategyOPT) then
-        limex:select_cost_strategy(limexDesc.costStrategyOPT)
-    end
-
-    -- grid function spaces (e.g. for norms)
+-- grid function spaces (e.g. for norms)
 
 
-    return limex
+return limex
 end

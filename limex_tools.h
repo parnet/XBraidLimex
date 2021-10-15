@@ -35,21 +35,20 @@
 
 #define PROFILE_LIMEX
 #ifdef PROFILE_LIMEX
-#define LIMEX_PROFILE_FUNC()        PROFILE_FUNC_GROUP("limex")
-#define LIMEX_PROFILE_BEGIN(name)    PROFILE_BEGIN_GROUP(name, "limex")
-#define LIMEX_PROFILE_END()        PROFILE_END()
+	#define LIMEX_PROFILE_FUNC()		PROFILE_FUNC_GROUP("limex")
+	#define LIMEX_PROFILE_BEGIN(name)	PROFILE_BEGIN_GROUP(name, "limex")
+	#define LIMEX_PROFILE_END()		PROFILE_END()
 #else
-#define LIMEX_PROFILE_FUNC()
-#define LIMEX_PROFILE_BEGIN(name)
-#define LIMEX_PROFILE_END()
+	#define LIMEX_PROFILE_FUNC()
+	#define LIMEX_PROFILE_BEGIN(name)
+	#define LIMEX_PROFILE_END()
 #endif
 
 #include "common/debug_id.h"
+namespace ug{
 
-namespace ug {
 
-
-    extern DebugID LIB_LIMEX;
+extern DebugID LIB_LIMEX;
 
 
 }

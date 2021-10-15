@@ -46,90 +46,89 @@
 namespace ug {
 
 /// Newton solver for assembling-based discretizations solved using Limex
-    template<typename TAlgebra>
-    class LimexNewtonSolver
-            : public IOperatorInverse<typename TAlgebra::vector_type>
-        //public DebugWritingObject<TAlgebra>
-    {
-    public:
-        /// algebra type
-        typedef TAlgebra algebra_type;
+template <typename TAlgebra>
+class LimexNewtonSolver
+	: 	public IOperatorInverse<typename TAlgebra::vector_type>
+		//public DebugWritingObject<TAlgebra>
+{
+	public:
+		/// algebra type
+		typedef TAlgebra algebra_type;
 
-        /// vector type
-        typedef typename TAlgebra::vector_type vector_type;
+		/// vector type
+		typedef typename TAlgebra::vector_type vector_type;
 
-        /// matrix type
-        typedef typename TAlgebra::matrix_type matrix_type;
+		/// matrix type
+		typedef typename TAlgebra::matrix_type matrix_type;
 
-    public:
-        /// default constructor
-        LimexNewtonSolver();
+	public:
+		/// default constructor
+		LimexNewtonSolver();
 
-        /// constructor setting operator
-        LimexNewtonSolver(SmartPtr<IOperator<vector_type> > N);
+		/// constructor setting operator
+		LimexNewtonSolver(SmartPtr<IOperator<vector_type> > N);
 
-        /// constructor using assembling
-        LimexNewtonSolver(SmartPtr<IAssemble<TAlgebra> > spAss);
+		/// constructor using assembling
+		LimexNewtonSolver(SmartPtr<IAssemble<TAlgebra> > spAss);
 
-        /// sets the linear solver
-        void set_linear_solver(
-                SmartPtr<ILinearOperatorInverse<vector_type> > LinearSolver) { m_spLinearSolver = LinearSolver; }
+		/// sets the linear solver
+		void set_linear_solver(SmartPtr<ILinearOperatorInverse<vector_type> > LinearSolver)
+		{m_spLinearSolver = LinearSolver;}
 
-        /// This operator inverts the operator N: Y -> X
-        virtual bool init(SmartPtr<IOperator<vector_type> > N);
+		/// This operator inverts the operator N: Y -> X
+		virtual bool init(SmartPtr<IOperator<vector_type> > N);
 
-        /// prepare operator
-        virtual bool prepare(vector_type &u);
+		/// prepare operator
+		virtual bool prepare(vector_type& u);
 
-        /// apply operator, i.e. N^{-1}(0) = u
-        virtual bool apply(vector_type &u);
+		/// apply operator, i.e. N^{-1}(0) = u
+		virtual bool apply(vector_type& u);
 
-        /**
-         * @brief Returns information about configuration parameters.
-         * This should return necessary information about parameters and possibly
-         * calling config_string of subcomponents.
-         *
-         * @returns std::string  necessary information about configuration parameters
-         */
-        virtual std::string config_string() const;
+		/**
+		 * @brief Returns information about configuration parameters.
+		 * This should return necessary information about parameters and possibly
+		 * calling config_string of subcomponents.
+		 *
+		 * @returns std::string  necessary information about configuration parameters
+		 */
+		virtual std::string config_string() const;
 
-        /// prints average linear solver convergence
-        number linear_solver_rate() const;
+		/// prints average linear solver convergence
+		number linear_solver_rate() const;
 
-        /// information on linear solver convergence
-        int linear_solver_steps() const;
+		/// information on linear solver convergence
+		int linear_solver_steps() const;
 
-    private:
-        /// help functions for debug output
-        /// @{
-        void write_debug(const vector_type &vec, const char *filename);
+	private:
+		/// help functions for debug output
+		/// @{
+		void write_debug(const vector_type& vec, const char* filename);
+		void write_debug(const matrix_type& mat, const char* filename);
+		/// @}
 
-        void write_debug(const matrix_type &mat, const char *filename);
-        /// @}
-
-    private:
-        /// linear solver
-        SmartPtr<ILinearOperatorInverse<vector_type> > m_spLinearSolver;
-
-
-        /// assembling routine
-        SmartPtr<AssembledOperator<algebra_type> > m_N;
-
-        /// jacobi operator
-        SmartPtr<AssembledLinearOperator<algebra_type> > m_J;
-
-        /// assembling
-        SmartPtr<IAssemble<TAlgebra> > m_spAss;
+	private:
+		/// linear solver
+		SmartPtr<ILinearOperatorInverse<vector_type> > m_spLinearSolver;
 
 
-        /// convergence history of linear solver
-        /// @{
-        size_t m_linSolverSteps;
-        number m_linSolverRate;
-        /// @}
-    };
+		/// assembling routine
+		SmartPtr<AssembledOperator<algebra_type> > m_N;
 
-}    // namespace ug
+		/// jacobi operator
+		SmartPtr<AssembledLinearOperator<algebra_type> > m_J;
+
+		/// assembling
+		SmartPtr<IAssemble<TAlgebra> > m_spAss;
+
+
+		/// convergence history of linear solver
+		/// @{
+		size_t m_linSolverSteps;
+		number m_linSolverRate;
+		/// @}
+};
+
+}	// namespace ug
 
 #include "newton_limex_impl.h"
 

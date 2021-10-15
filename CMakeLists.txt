@@ -9,11 +9,11 @@
 ################################################################################
 
 # Name of your plugin, path to your plugin (relative to ug's root path) and sources.
-set(pluginName Limex)
-set(SOURCES limex_plugin.cpp
-        time_disc/time_extrapolation.cpp
-        time_disc/linear_implicit_timestep.cpp
-        )
+set(pluginName	XBraidLimex)
+set(SOURCES		limex_plugin.cpp
+				time_disc/time_extrapolation.cpp
+				time_disc/linear_implicit_timestep.cpp
+)
 
 
 ################################################################################
@@ -23,20 +23,14 @@ cmake_minimum_required(VERSION 2.6)
 
 project(UG_PLUGIN_${pluginName})
 
-if (UG_ROOT_CMAKE_PATH)
-    MESSAGE("Limex UG Root was found")
-else (UG_ROOT_CMAKE_PATH)
-    set(UG_ROOT_CMAKE_PATH /pro/ug/ugcore/cmake)
-endif (UG_ROOT_CMAKE_PATH)
-
 # include the definitions and dependencies for ug-plugins.
 include(${UG_ROOT_CMAKE_PATH}/ug_plugin_includes.cmake)
 
-if (buildEmbeddedPlugins)
-    # add the sources to ug4's sources
-    EXPORTSOURCES(${CMAKE_CURRENT_SOURCE_DIR} ${SOURCES})
-else (buildEmbeddedPlugins)
-    # create a shared library from the sources and link it against ug4.
-    add_library(${pluginName} SHARED ${SOURCES})
-    target_link_libraries(${pluginName} ug4)
-endif (buildEmbeddedPlugins)
+if(buildEmbeddedPlugins)
+	# add the sources to ug4's sources
+	EXPORTSOURCES(${CMAKE_CURRENT_SOURCE_DIR} ${SOURCES})
+else(buildEmbeddedPlugins)
+	# create a shared library from the sources and link it against ug4.
+	add_library(${pluginName} SHARED ${SOURCES})
+	target_link_libraries (${pluginName} ug4)
+endif(buildEmbeddedPlugins)
